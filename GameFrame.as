@@ -1,5 +1,6 @@
 package 
 {
+	import data.paymentModule.wind.menu.item.ItemModel;
 	import flash.display.Sprite;
 	import flash.utils.Timer;
 	/**
@@ -18,7 +19,7 @@ package
 	}
 	
 	//Базовый класс объекта, который отображается на игровой карте
-	//И с ним никаких взаимодействий не происходит
+	//С ним никаких взаимодействий не происходит
 	public class BaseMapObject
 	{
 		public var posX:int;						//позиция на карте по Х
@@ -49,13 +50,12 @@ package
 			if (!isVulnarable) { return; }			//Неуязвимым объектам никакого урона не может наноситься
 			
 			health -= damage;						//условная логика нанесения урона
+			
+			if (health <= 0) { death(); }			//смерть объекта, после того как health дойдет до нуля
 		}
 		
 		//Условная смерть игрового объекта, уничтожение, убирание с карты
 		public function death():void { }
-		
-		//Выполняет какое-либо действие по заданному тригеру
-		public function action():void { }
 	}
 	
 	//Класс ресурсов, которые выпадают на карте и доступны для сбора (Доски, Гравий)
@@ -68,7 +68,7 @@ package
 		public function ResourceObject() { }
 		
 		//При вызове этого метода ресурсный объект собирается с карты и начисляется игроку
-		override public function action():void { }
+		public function collect():void { }
 	}
 	
 	//Класс добывающих объектов, после взаимодействия с которыми
@@ -77,20 +77,15 @@ package
 	{		
 		public function MiningObject() { }
 		
-		//После уничтожения дерева вызывается action
-		override public function death():void {
-			action();
-			remove();
-		}
-		
-		override public function action():void {
-			//в данном случае создается объект ресурсов "Доски" с заданным количеством
-			//и выкладывается на игровое поле
-		}
+		/**
+		 * Сбросить ресурсы заданного типа
+		 * @param	type
+		 */
+		public function dropRes(type:int):void { }
 	}
 	
 	//Класс объекта, который оказывает какое-то воздействие
-	//на окружающие объекты по типу "Источник силы"
+	//на окружающие объекты по типу "Источник силы" (в будущем могут быть объекты с разной силой)
 	public class PowerObject extends InteractiveMapObject
 	{
 		protected var _range:int;					//Радиус области воздействия
@@ -100,7 +95,7 @@ package
 		public function PowerObject() { } 
 		
 		//По вызову action объект будет отхиливать ближайших живих юнитов
-		override public function action():void { }
+		public function usePower():void { }
 	}
 	
 	//Класс интерактивного взрывающегося объекта (Бочка со взрывчаткой)
@@ -113,11 +108,11 @@ package
 		
 		//После уничтожения бочки вызывается action
 		override public function death():void {
-			action();
+			blow();
 			remove();
 		}
 		
-		override public function action():void {
+		public function blow():void {
 			//Объект взрывается, нанося урон _weaponDamage вокруг себя
 			//по области с радиусом _range
 		}
@@ -140,7 +135,7 @@ package
 		 * Если все условия удовлетворяют, производим выстрел.
 		 * @param	delta - дельта время между кадрами
 		 */
-		public function checkForShoot(delta:int):void {
+		public function tryShoot(delta:int):void {
 			//...checkForShoot...
 			if ("checkForShoot" == true) {
 				shoot();
@@ -154,25 +149,35 @@ package
 		public function shoot():void { }
 	}
 	
+	//Интерфейс добавляющий объекту способность перемещения по карте
+	public interface IDynamicObject
+	{
+		function moveSpeed():int;					//скорость перемещения
+		function moveTo(x:int, y:int);				//перемещение объекта в указанную точку
+	}
+	
 	//Передвигающийся игровой объект (Юнит)
-	public class DynamicMapObject extends InteractiveMapObject
+	public class DynamicMapObject extends InteractiveMapObject implements IDynamicObject
 	{
 		protected var _movementSpeed:int;			//скорость перемещения объекта
 		
 		
-		public function DynamicMapObject() { } 
+		public function DynamicMapObject() { }
 		
-		//Перемещение объекта в указанную точку на карте
+		public function moveSpeed():int { return _movementSpeed; }
+	
+		//Перемещение объекта в указанную точку на карте с скоростью _movementSpeed
 		public function moveTo(x:int, y:int):void { }
 	}
 	
 	//Стреляющий и передвигающийся объект (Стреляющий юнит)
-	public class ShootingDynamicObject extends ShootingStaticObject
+	public class ShootingDynamicObject extends ShootingStaticObject implements IDynamicObject
 	{
 		protected var _movementSpeed:int;			//скорость перемещения объекта
 		
-		
 		public function ShootingDynamicObject() { }
+		
+		public function moveSpeed():int { return _movementSpeed; }
 		
 		//Перемещение объекта в указанную точку на карте с скоростью _movementSpeed
 		public function moveTo(x:int, y:int):void { }
